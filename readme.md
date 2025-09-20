@@ -63,66 +63,66 @@ TimberLog/
        ┌───────────────────────────────┐
        │        Log Producers          │
        │ (Apps, Services, Scripts)     │
-       └───────────────┬──────────────┘
+       └───────────────┬───────────────┘
                        │ Send logs (JSON / gRPC)
                        ▼
         ┌─────────────────────────────┐
         │        TimberLog API        │
         │ - HTTP / REST / gRPC        │
         │ - Validate & parse logs     │
-        └───────────────┬────────────┘
+        └───────────────┬─────────────┘
                         │
                         ▼
-           ┌──────────────────────────┐
+           ┌───────────────────────────┐
            │      Ingest Manager       │
            │ - Append logs to memory   │
            │   buffer                  │
            │ - Trigger flush on full   │
            │ - Handles batch ingestion │
-           └───────────────┬──────────┘
+           └───────────────┬───────────┘
                            │
                            ▼
-                 ┌───────────────────┐
+                 ┌───────────────────────┐
                  │        WAL            │
                  │ - wal.wal             │
                  │ - wal.meta            │
                  │ - ensures durability  │
-                 └───────────┬───────┘
+                 └───────────┬───────────┘
                              │ Flush triggered
                              ▼
             ┌─────────────────────────────────┐
-            │     Disk Partition / Segment     │
-            │ ┌─────────────────────────────┐ │
-            │ │ segment.log                  │ │
-            │ │ - append-only log entries    │ │
-            │ │ - messages, stack traces     │ │
-            │ │ - dynamic fields stored      │ │
-            │ └─────────────┬──────────────┘ │
-            │               │
-            │               ▼
+            │     Disk Partition / Segment    │
+            │ ┌────────────────────────────┐  │
+            │ │ segment.log                │  │
+            │ │ - append-only log entries  │  │
+            │ │ - messages, stack traces   │  │
+            │ │ - dynamic fields stored    │  │
+            │ └─────────────┬──────────────┘  |
+            │               │                 |
+            │               ▼                 |
             │ ┌─────────────────────────────┐ │
             │ │ B+ Tree Indexes             │ │
             │ │ - ts.bptree (timestamp)     │ │
             │ │ - level.bptree (log level)  │ │
             │ │ - service.bptree            │ │
             │ │ - optional user-defined idx │ │
-            │ └─────────────┬──────────────┘ │
-            │               ▼
-            │ ┌─────────────────────────────┐ │
-            │ │ manifest.json                │ │
-            │ │ - segment metadata           │ │
-            │ │ - partition info             │ │
-            │ └─────────────────────────────┘ │
+            │ └─────────────┬───────────────┘ │
+            │               ▼                 |
+            │ ┌────────────────────────────┐  │
+            │ │ manifest.json              │  │
+            │ │ - segment metadata         │  │
+            │ │ - partition info           │  │
+            │ └────────────────────────────┘  │
             └─────────────────────────────────┘
                              │
                              ▼
-                     ┌───────────────┐
-                     │ Query Engine  │ <- Phase 2
-                     │ - Load indexes│
-                     │ - Intersect   │
-                     │ - Read segment│
+                     ┌─────────────────┐
+                     │ Query Engine    │ <- Phase 2
+                     │ - Load indexes  │
+                     │ - Intersect     │
+                     │ - Read segment  │
                      │ - Apply filters │
-                     └───────────────┘
+                     └─────────────────┘
                              │
                              ▼
                      ┌───────────────┐
