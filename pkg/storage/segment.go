@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -197,4 +198,72 @@ func (segmentManager *SegmentManager) LastRotatedMaxTimestamp() int64 {
 func (segmentManager *SegmentManager) ResetRotationInfo() {
 	segmentManager.rotated = false
 	segmentManager.rotatedMeta = SegmentMeta{}
+}
+
+// CurrFileName returns the current segment file name
+func (segmentManager *SegmentManager) Dir() string {
+	segmentManager.mutex.Lock()
+	defer segmentManager.mutex.Unlock()
+	return segmentManager.dir
+}
+
+func (segmentManager *SegmentManager) ActiveSegmentMeta() SegmentMeta {
+	segmentManager.mutex.Lock()
+	defer segmentManager.mutex.Unlock()
+
+	return SegmentMeta{
+		FileName:     segmentManager.currName,
+		Size:         segmentManager.currSize,
+		MinTimestamp: segmentManager.minTimestampSegment,
+		MaxTimestamp: segmentManager.maxTimestampSegment,
+	}
+}
+
+// ReadSegment reads logs from a segment file at given offsets.
+// If offsets is empty, read the whole file.
+func (segmentManager *SegmentManager) ReadSegment(fileName string, offsets []int64) ([]types.LogEntry, error) {
+
+	segmentManager.mutex.Lock()
+	defer segmentManager.mutex.Unlock()
+
+	file, err := os.Open(fileName)
+	if err != nil {
+		return nil, err
+	}
+
+	defer file.Close()
+
+	var results []types.LogEntry
+
+	if len(offsets) == 0 {
+		// full scan
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			var entry types.LogEntry
+			if err := json.Unmarshal(scanner.Bytes(), &entry); err == nil {
+				results = append(results, entry)
+			}
+		}
+
+		return results, scanner.Err()
+	}
+
+	// read only specific offsets
+	for _, off := range offsets {
+		if _, err := file.Seek(off, io.SeekStart); err != nil {
+			return nil, err
+		}
+
+		line, err := bufio.NewReader(file).ReadBytes('\n')
+		if err != nil {
+			return nil, err
+		}
+
+		var entry types.LogEntry
+		if err := json.Unmarshal(line, &entry); err == nil {
+			results = append(results, entry)
+		}
+	}
+
+	return results, nil
 }

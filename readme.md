@@ -46,7 +46,7 @@ TimberLog/
 - WAL for durability  
 - Disk segments and manifest  
 - B+ tree indexes skeleton  
-- API ingestion (HTTP / gRPC endpoints placeholder)  
+- API ingestion (HTTP / gRPC endpoints)  
 
 **Phase 2**:
 
@@ -129,5 +129,70 @@ TimberLog/
                      │ Query Result  │
                      │ (User / UI)   │
                      └───────────────┘
+
+```
+
+### query engine
+
+```
+         ┌───────────────────────────────┐
+         │          User Query           │
+         │  - Timestamp range            │
+         │  - Field filters (level, ...)│
+         │  - Optional: aggregation, sort│
+         └───────────────┬──────────────┘
+                         │
+                         ▼
+                ┌─────────────────┐
+                │ Query Planner   │
+                │ - Parse query   │
+                │ - Check which   │
+                │   indexes exist │
+                │ - Determine     │
+                │   relevant segments│
+                └───────────┬─────┘
+                            │
+         ┌──────────────────┴───────────────────┐
+         │                                      │
+         ▼                                      ▼
+┌─────────────────────┐                  ┌───────────────────────┐
+│ IndexManager        │                  │ Manifest Manager       │
+│ - Lookup indexes    │                  │ - Read segment metadata│
+│ - Returns offsets   │                  │   (min/max timestamp) │
+│   per segment       │                  │ - Determine which      │
+│                     │                  │   segments intersect   │
+│   timestamp index   │                  │   query range          │
+│   user-defined idx  │                  └─────────────┬─────────┘
+└─────────┬───────────┘                                │
+          │                                            │
+          ▼                                            ▼
+   ┌─────────────────────────┐           ┌─────────────────────────┐
+   │ SegmentManager / Reader │           │ SegmentManager / Reader │
+   │ - Open segment file     │           │ - Open segment file     │
+   │ - Seek(offset)          │           │ - Seek(offset)          │
+   │ - Read log entries      │           │ - Read log entries      │
+   └─────────────┬───────────┘           └─────────────┬───────────┘
+                 │                                     │
+                 └─────────┐      ┌──────────────────┘
+                           ▼      ▼
+                  ┌───────────────────────────┐
+                  │ Filter & Projection Layer │
+                  │ - Apply user filters      │
+                  │ - Return requested fields │
+                  └─────────────┬─────────────┘
+                                │
+                                ▼
+                  ┌───────────────────────────┐
+                  │ Aggregation / Sorting     │
+                  │ - Optional                │
+                  │ - Group by field          │
+                  │ - Limit / pagination      │
+                  └─────────────┬─────────────┘
+                                │
+                                ▼
+                  ┌───────────────────────────┐
+                  │ Result Set / API Response │
+                  │ - JSON / CSV / streaming  │
+                  └───────────────────────────┘
 
 ```

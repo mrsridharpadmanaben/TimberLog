@@ -2,6 +2,7 @@ package index
 
 import (
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/mrsridharpadmanaben/TimberLog/pkg/types"
@@ -113,8 +114,8 @@ func (indexManager *IndexManager) Search(indexName, key string) []IndexEntry {
 
 	results := []IndexEntry{}
 
-	// pivot search starts at (key, timestamp=0)
-	pivot := IndexEntry{Key: key, Timestamp: 0}
+	// pivot search starts at (key, timestamp=min value)
+	pivot := IndexEntry{Key: key, Timestamp: math.MinInt64}
 
 	idx.Tree.Ascend(pivot, func(item IndexEntry) bool {
 		if item.Key != key {
@@ -156,4 +157,27 @@ func (indexManager *IndexManager) HasIndex(field string) bool {
 	defer indexManager.mutex.RUnlock()
 	_, ok := indexManager.indexes[field]
 	return ok
+}
+
+func (im *IndexManager) Lookup(indexName string, start, end int64, key string) []int64 {
+	im.mutex.RLock()
+	defer im.mutex.RUnlock()
+
+	idx, ok := im.indexes[indexName]
+	if !ok {
+		return nil
+	}
+
+	results := []int64{}
+	idx.Tree.Ascend(IndexEntry{}, func(item IndexEntry) bool {
+		if item.Timestamp > end {
+			return false
+		}
+		if item.Timestamp >= start && (key == "" || item.Key == key) {
+			results = append(results, item.Offset)
+		}
+		return true
+	})
+
+	return results
 }
