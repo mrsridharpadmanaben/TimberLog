@@ -23,7 +23,7 @@ func TestIngestFlow(t *testing.T) {
 	// 1. Create storage components
 	// ---------------------------
 	walManager, _ := storage.NewWALManager(
-		filepath.Join(tmpDir, "wal.wal"),
+		filepath.Join(tmpDir),
 		filepath.Join(tmpDir, "wal.meta"),
 	)
 
@@ -92,16 +92,23 @@ func TestRecoveryFlow(t *testing.T) {
 	// ---------------------------
 	// Step 1: Setup initial system
 	// ---------------------------
-	walPath := filepath.Join(tmpDir, "wal.wal")
+	walPath := filepath.Join(tmpDir)
 	metaPath := filepath.Join(tmpDir, "wal.meta")
-	walManager, _ := storage.NewWALManager(walPath, metaPath)
+
+	walManager, err := storage.NewWALManager(walPath, metaPath)
+	if err != nil {
+		t.Fatalf("Failed to create WAL manager: %v", err)
+	}
 
 	segmentManager, _ := storage.NewSegmentManager(tmpDir, 1024*10)
 	manifest, _ := storage.NewManifest(filepath.Join(tmpDir, "manifest.json"))
 	buffer := &ingest.MemoryBuffer{}
 
 	indexManager := index.NewIndexManager()
-	ingestManager := ingest.NewIngestManager(buffer, walManager, segmentManager, manifest, indexManager, 1*time.Second)
+
+	ingestManager := ingest.NewIngestManager(
+		buffer, walManager, segmentManager, manifest, indexManager, 1*time.Second,
+	)
 
 	// ---------------------------
 	// Step 2: Append logs
@@ -115,7 +122,9 @@ func TestRecoveryFlow(t *testing.T) {
 			Message:    fmt.Sprintf("Log entry %d", i),
 			Properties: map[string]interface{}{"service": "recovery_test"},
 		}
-		ingestManager.AppendLog(entry)
+		if err := ingestManager.AppendLog(entry); err != nil {
+			t.Fatalf("AppendLog failed: %v", err)
+		}
 
 		// Flush halfway
 		if i == 4 {
@@ -132,9 +141,13 @@ func TestRecoveryFlow(t *testing.T) {
 	walManager.Close()
 
 	// ---------------------------
-	// Step 4: Create new managers to simulate recovery
+	// Step 4: Re-create managers to simulate recovery
 	// ---------------------------
-	recoveredWal, _ := storage.NewWALManager(walPath, metaPath)
+	recoveredWal, err := storage.NewWALManager(walPath, metaPath)
+	if err != nil {
+		t.Fatalf("Failed to re-create WAL manager: %v", err)
+	}
+
 	recoveredSegment, _ := storage.NewSegmentManager(tmpDir, 1024*10)
 	recoveredManifest, _ := storage.NewManifest(filepath.Join(tmpDir, "manifest.json"))
 	recoveredBuffer := &ingest.MemoryBuffer{}
@@ -156,13 +169,15 @@ func TestRecoveryFlow(t *testing.T) {
 	// ---------------------------
 	// Step 5: Replay WAL
 	// ---------------------------
-	entries, err := recoveredWal.Replay()
+	entries, err := recoveredWal.ReplayAllUnflushed()
 	if err != nil {
 		t.Fatalf("Replay failed: %v", err)
 	}
 
 	for _, entry := range entries {
-		recoveredIngest.AppendLog(entry)
+		if err := recoveredIngest.AppendLog(entry); err != nil {
+			t.Fatalf("AppendLog during replay failed: %v", err)
+		}
 	}
 
 	if err := recoveredIngest.Flush(); err != nil {
@@ -170,15 +185,15 @@ func TestRecoveryFlow(t *testing.T) {
 	}
 
 	// ---------------------------
-	// Step 6: Verify index
+	// Step 6: Verify index recovery
 	// ---------------------------
 	for i := 0; i < totalLogs; i++ {
 		tsKey := fmt.Sprintf("%d", now+int64(i*1000))
 		results := recoveredIndexManager.Search("timestamp", tsKey)
 		if len(results) == 0 {
-			t.Errorf("Timestamp %s not found in index", tsKey)
+			t.Errorf("Timestamp %s not found in recovered index", tsKey)
 		} else {
-			t.Logf("Recovered log for timestamp %s: %+v", tsKey, results)
+			t.Logf("Recovered log for timestamp %s: %+v", tsKey, results[0])
 		}
 	}
 }

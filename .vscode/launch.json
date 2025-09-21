@@ -1,0 +1,17 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug Full Server",
+            "type": "go",
+            "request": "launch",
+            "mode": "debug",
+            "program": "${workspaceFolder}/cmd/main.go",
+            "args": [],
+            "env": {
+                "DEBUG": "true"
+            },
+            "buildFlags": "-gcflags='all=-N -l'"
+        }
+    ]
+}

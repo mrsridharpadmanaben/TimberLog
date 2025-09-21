@@ -91,6 +91,13 @@ func (ingestManager *IngestManager) Flush() error {
 		ingestManager.segmentManager.ResetRotationInfo()
 	}
 
+	// 3. after segment persisted, mark WAL seq flushed
+	currSeq := ingestManager.walManager.Meta.CurrentSeq
+	// everything before the active WAL file is persisted; safe to delete
+	if err := ingestManager.walManager.MarkFlushed(currSeq - 1); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -113,4 +120,22 @@ func (ingestManager *IngestManager) StartBackgroundFlush() {
 // StopBackgroundFlush stops the periodic flush goroutine
 func (ingestManager *IngestManager) StopBackgroundFlush() {
 	close(ingestManager.stopChannel)
+}
+
+func (ingestManager *IngestManager) RecoverFromWAL() error {
+	entries, err := ingestManager.walManager.ReplayAllUnflushed()
+	if err != nil {
+		return err
+	}
+
+	for _, e := range entries {
+		ingestManager.buffer.Append(e)
+	}
+
+	// --- Flush recovered logs to segments ---
+	if err := ingestManager.Flush(); err != nil {
+		return err
+	}
+
+	return nil
 }

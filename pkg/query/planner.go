@@ -7,11 +7,18 @@ import (
 	"github.com/mrsridharpadmanaben/TimberLog/pkg/storage"
 )
 
+type OperatorLogicalType string
+
+const (
+	OperatorAND OperatorLogicalType = "AND"
+	OperatorOR  OperatorLogicalType = "OR"
+)
+
 // FilterExpression represents a single condition with logical operator
 type FilterExpression struct {
 	Field    string
 	Value    string
-	Operator string // "AND" or "OR"
+	Operator OperatorLogicalType // "AND" or "OR"
 }
 
 // Query represents the high-level user request.
@@ -57,7 +64,7 @@ func PlanQuery(query *Query, indexManager *index.IndexManager, manifest *storage
 	// field filters
 	for _, f := range query.Filters {
 		newFilter := &FieldFilter{Field: f.Field, Value: f.Value}
-		if f.Operator == "OR" && len(filterStack) > 0 {
+		if f.Operator == OperatorOR && len(filterStack) > 0 {
 			// combine last filter with OR
 			last := filterStack[len(filterStack)-1]
 			filterStack[len(filterStack)-1] = &OrFilter{Filters: []Filter{last, newFilter}}
@@ -73,29 +80,6 @@ func PlanQuery(query *Query, indexManager *index.IndexManager, manifest *storage
 	} else if len(filterStack) > 1 {
 		plan.Filter = &AndFilter{Filters: filterStack}
 	}
-
-	// // --- Rotated segments from manifest ---
-	// for _, seg := range manifest.GetSegments() {
-	// 	if seg.MaxTimestamp >= query.StartTime && seg.MinTimestamp <= query.EndTime {
-	// 		path := filepath.Join(activeSegment.Dir(), seg.FileName)
-	// 		plan.Segments = append(plan.Segments, path)
-
-	// 		// Use indexes if available
-	// 		offsets := getOffsetsForSegment(seg.FileName, query, indexManager)
-	// 		plan.Offsets[path] = offsets
-	// 	}
-	// }
-
-	// // --- Active segment ---
-	// activeMeta := activeSegment.ActiveSegmentMeta()
-
-	// if activeMeta.MaxTimestamp >= query.StartTime && activeMeta.MinTimestamp <= query.EndTime {
-	// 	path := filepath.Join(activeSegment.Dir(), activeMeta.FileName)
-	// 	plan.Segments = append(plan.Segments, path)
-
-	// 	offsets := getOffsetsForSegment(activeMeta.FileName, query, indexManager)
-	// 	plan.Offsets[path] = offsets
-	// }
 
 	// --- Select segments from manifest ---
 	for _, seg := range manifest.GetSegments() {

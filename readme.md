@@ -195,4 +195,33 @@ TimberLog/
                   │ - JSON / CSV / streaming  │
                   └───────────────────────────┘
 
+``` 
+
+### endpoints
+
+``` curl
+curl -X POST http://localhost:8080/write \
+     -H "Content-Type: application/json" \
+     -d '{
+           "Timestamp": 1690000000000,
+           "Level": "ERROR",
+           "Service": "auth",
+           "Host": "host1",
+           "Message": "Failed login",
+           "StackTrace": "",
+           "Properties": {"user_id": "123"}
+         }'
+
+curl -X POST http://localhost:8081/query \
+     -H "Content-Type: application/json" \
+     -d '{
+           "StartTime": 1690000000000,
+           "EndTime": 1690000100000,
+           "Filters": [
+               {"Field": "Level", "Value": "ERROR"},
+               {"Field": "Service", "Value": "auth"}
+           ],
+           "Limit": 100,
+           "SortAsc": true
+         }'
 ```
