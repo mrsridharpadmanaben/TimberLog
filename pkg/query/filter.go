@@ -85,15 +85,3 @@ func ApplyFilters(entry types.LogEntry, filter Filter) bool {
 	}
 	return filter.Apply(entry)
 }
-
-// // ApplyFilters checks if a log entry satisfies the query filters
-// func ApplyFilters(logEntity types.LogEntry, plan *QueryPlan) bool {
-// 	// For each filter in plan, check against log entry fields
-// 	for k, v := range plan.Query.Filters {
-// 		val, ok := logEntity.Properties[k]
-// 		if !ok || val != v {
-// 			return false
-// 		}
-// 	}
-// 	return true
-// }

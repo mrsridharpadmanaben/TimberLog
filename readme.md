@@ -215,13 +215,23 @@ curl -X POST http://localhost:8080/write \
 curl -X POST http://localhost:8081/query \
      -H "Content-Type: application/json" \
      -d '{
-           "StartTime": 1690000000000,
-           "EndTime": 1690000100000,
+           "StartTime": 0,
+           "EndTime": 0,
            "Filters": [
-               {"Field": "Level", "Value": "ERROR"},
                {"Field": "Service", "Value": "auth"}
            ],
            "Limit": 100,
            "SortAsc": true
          }'
+
+    "Filters": [
+          {"Field": "Level", "Value": "ERROR"},
+          {"Field": "Service", "Value": "auth"}
+      ],
+
+    for i in {1..5}; do
+      curl -s -X POST http://localhost:8080/write \
+          -H "Content-Type: application/json" \
+          -d "{\"Timestamp\": $(($(date +%s%3N) + $i*1000)), \"Level\": \"INFO\", \"Service\": \"test\", \"Message\": \"Log $i\", \"Properties\": {}}" 
+    done
 ```

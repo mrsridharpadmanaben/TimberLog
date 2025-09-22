@@ -39,7 +39,7 @@ func ExecutePlan(plan *QueryPlan, segmentManager *storage.SegmentManager) ([]typ
 	// Sort by timestamp
 	if len(results) > 1 {
 		sort.Slice(results, func(i, j int) bool {
-			if plan.Query.Limit <= 0 {
+			if plan.Query.SortAsc {
 				return results[i].Timestamp < results[j].Timestamp
 			}
 			return results[i].Timestamp < results[j].Timestamp
